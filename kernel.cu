@@ -16,12 +16,12 @@ constexpr float margin = 50;
 
 
 // Assign helpful variables
-glm::vec2* velocity_buffer = nullptr;
-Fish* fishes_gpu = nullptr;
-Fish* fishes_gpu_sorted = nullptr;
-unsigned int* indices = nullptr;
-unsigned int* grid_cell_indices = nullptr;
-float* vertices_array_gpu = nullptr;
+//glm::vec2* velocity_buffer = nullptr;
+//Fish* fishes_gpu = nullptr;
+//Fish* fishes_gpu_sorted = nullptr;
+//unsigned int* indices = nullptr;
+//unsigned int* grid_cell_indices = nullptr;
+//float* vertices_array_gpu = nullptr;
 
 // Compute velocity kernel function
 __global__ void compute_vel(Fish* fishes, glm::vec2* vel2, unsigned int* grid_cell_indices, int* grid_cell_start, int* grid_cell_end,
@@ -237,7 +237,7 @@ __global__ void copy_fishes_kernel(Fish* fishes, float* vertices, unsigned int N
 }
 
 // Allocate needed memory
-void CudaFunctions::initialize_simulation(unsigned int N)
+void CudaFish::initialize_simulation(unsigned int N)
 {
     cudaError_t cudaStatus;
 
@@ -274,7 +274,7 @@ void CudaFunctions::initialize_simulation(unsigned int N)
     cudaDeviceSynchronize();
 }
 // Deallocate memory
-void CudaFunctions::end_simulation()
+void CudaFish::end_simulation()
 {
     cudaFree(velocity_buffer);
     cudaFree(indices);
@@ -284,7 +284,7 @@ void CudaFunctions::end_simulation()
     cudaFree(vertices_array_gpu);
 }
 // Function to upddate fish pos and vel
-void CudaFunctions::update_fishes(Fish* fishes, unsigned int N, float vr, float md, float r1, float r2, float r3, float speed_scale, double mouseX, double mouseY, bool mouse_pressed, bool group_by_species)
+void CudaFish::update_fishes(Fish* fishes, unsigned int N, float vr, float md, float r1, float r2, float r3, float speed_scale, double mouseX, double mouseY, bool mouse_pressed, bool group_by_species)
 {
     cudaError_t cudaStatus;
     
@@ -358,7 +358,7 @@ void CudaFunctions::update_fishes(Fish* fishes, unsigned int N, float vr, float 
     cudaFree(grid_cell_end);
 }
 // Copy fishes to VBO
-void CudaFunctions::copy_fishes(Fish* fishes, float* vertices_array, unsigned int N)
+void CudaFish::copy_fishes(Fish* fishes, float* vertices_array, unsigned int N)
 {
     cudaError_t cudaStatus;
 

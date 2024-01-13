@@ -22,12 +22,12 @@
 // Fish count
 #define N 300
 
-void program_loop();
+void program_loop(CudaFish cf);
 void draw_fishes();
-void update_fish(float vr, float md, float r1, float r2, float r3, float speed_scale, bool group_by_species);
-void update_fishes();
+void update_fish(CudaFish cf, float vr, float md, float r1, float r2, float r3, float speed_scale, bool group_by_species);
+void update_fishes(CudaFish cf);
 void setup_fishes();
-bool init();
+bool init_window();
 void init_fishes();
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
@@ -51,10 +51,14 @@ bool mouse_pressed = false;
 // Main function
 int main()
 {
-	if (init() == -1)
+	if (init_window() == -1)
 		return -1;
 
-	program_loop();
+	init_fishes();
+	CudaFish cf;
+	cf.initialize_simulation(N);
+
+	program_loop(cf);
 
 
 
@@ -90,46 +94,32 @@ void init_fishes()
 {
 	for (int i = 0; i < N; ++i)
 	{
-		for (int i = 0; i < N; ++i)
-		{
-			float X = (static_cast<float>(rand() % static_cast<int>(WINDOW_WIDTH)));
-			float Y = (static_cast<float>(rand() % static_cast<int>(WINDOW_HEIGHT)));
+		float X = (static_cast<float>(rand() % static_cast<int>(WINDOW_WIDTH)));
+		float Y = (static_cast<float>(rand() % static_cast<int>(WINDOW_HEIGHT)));
 
-			int x_vel = rand() % 5 + 1;
-			int y_vel = rand() % 5 + 1;
-			int x_rand = rand() % 2;
-			int y_rand = rand() % 2;
+		int x_vel = rand() % 10 + 1;
+		int y_vel = rand() % 10 + 1;
+		int x_rand = rand() % 2;
+		int y_rand = rand() % 2;
 
-			fishes[i] = Fish(X, Y);
+		fishes[i] = Fish(X, Y);
 
+		if (x_rand == 0)
+			fishes[i].vx = x_vel;
+		else
+			fishes[i].vx = -x_vel;
 
-			if (x_rand == 0)
-				fishes[i].vx = x_vel;
-			else
-				fishes[i].vx = -x_vel;
+		if (y_rand == 0)
+			fishes[i].vy = y_vel;
+		else
+			fishes[i].vy = -y_vel;
 
-			if (y_rand == 0)
-				fishes[i].vy = y_vel;
-			else
-				fishes[i].vy = -y_vel;
-
-		}
 	}
 }
 // Initialize application
-bool init()
+bool init_window()
 {
 	srand(time(NULL));
-
-	cudaDeviceProp deviceProp;
-	int gpuDevice = 0;
-	int device_count = 0;
-	cudaGetDeviceCount(&device_count);
-	if (gpuDevice > device_count) {
-		std::cout << "Error: GPU device number is greater than the number of devices!";
-		return false;
-	}
-	cudaGetDeviceProperties(&deviceProp, gpuDevice);
 
 	// Initialize GLFW
 	if (!glfwInit())
@@ -146,7 +136,7 @@ bool init()
 	glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_FALSE);
 
 	// Create a GLFWwindow object
-	window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Shoal of fish", NULL, NULL);
+	window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Aquarium", NULL, NULL);
 
 	// Error check if the window fails to create
 	if (window == NULL)
@@ -177,9 +167,6 @@ bool init()
 	ImGui::StyleColorsDark();
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 330");
-
-	init_fishes();
-	CudaFunctions::initialize_simulation(N);
 
 	return true;
 }
@@ -225,11 +212,11 @@ void setup_fishes()
 	glBindVertexArray(0);
 }
 // Update fishes pos on screen and pass to VBO
-void update_fishes()
+void update_fishes(CudaFish cf)
 {
 	float vertices[3 * 5 * N];
 
-	CudaFunctions::copy_fishes(fishes, vertices, N);
+	cf.copy_fishes(fishes, vertices, N);
 
 	glBindVertexArray(VAO);
 
@@ -240,10 +227,10 @@ void update_fishes()
 	glBindVertexArray(0);
 }
 // Run functions to update fishes
-void update_fish(float vr, float md, float r1, float r2, float r3, float speed_scale, bool group_by_species)
+void update_fish(CudaFish cf,float vr, float md, float r1, float r2, float r3, float speed_scale, bool group_by_species)
 {
-	CudaFunctions::update_fishes(fishes, N, vr, md, r1, r2, r3, speed_scale, mouseX, mouseY, mouse_pressed, group_by_species);
-	update_fishes();
+	cf.update_fishes(fishes, N, vr, md, r1, r2, r3, speed_scale, mouseX, mouseY, mouse_pressed, group_by_species);
+	update_fishes(cf);
 }
 // Draw fishes on screen
 void draw_fishes()
@@ -253,7 +240,7 @@ void draw_fishes()
 	glBindVertexArray(0);
 }
 // Main program loop
-void program_loop()
+void program_loop(CudaFish cf)
 {
 	// Initalize basic values
 	float visualRange = 35.f;
@@ -285,7 +272,7 @@ void program_loop()
 		glClear(GL_COLOR_BUFFER_BIT);
 
 
-		update_fish(visualRange, protectedRange, cohesion_scale, separation_scale, alignment_scale, speed_scale, group_by_species);
+		update_fish(cf, visualRange, protectedRange, cohesion_scale, separation_scale, alignment_scale, speed_scale, group_by_species);
 		draw_fishes();
 
 
@@ -323,7 +310,7 @@ void program_loop()
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
-	CudaFunctions::end_simulation();
+	cf.end_simulation();
 
 	// Delete window before ending the program
 	glfwDestroyWindow(window);
