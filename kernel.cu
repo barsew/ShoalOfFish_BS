@@ -6,7 +6,7 @@
 #include <thrust/gather.h>
 
 
-__global__ void compute_vel(Fish* fishes, glm::vec2* vel2, unsigned int* grid_cell_indices, int* grid_cell_start, int* grid_cell_end,
+__global__ void compute_vel(Fish* fishes, unsigned int* grid_cell_indices, int* grid_cell_start, int* grid_cell_end,
     unsigned int N, BoidsParameters bp, unsigned int grid_size,
     double mouseX, double mouseY, bool mouse_pressed, AnimationVars av, int width, int height)
 {
@@ -17,13 +17,13 @@ __global__ void compute_vel(Fish* fishes, glm::vec2* vel2, unsigned int* grid_ce
 
     Fish fish = fishes[index];
 
-    // Find neighbours cells
+    //  neighbours cells
     int cell_index = grid_cell_indices[index];
     int row_cells = width / (2 * bp.visionRange) + 1;
     int neighbour_cells[] = {cell_index, cell_index + 1, cell_index - 1, cell_index + row_cells, cell_index - row_cells, cell_index - row_cells - 1,
                     cell_index - row_cells + 1, cell_index + row_cells - 1, cell_index + row_cells + 1 };
 
-    // Go through neighbour cells
+    // Boids Algoritm
     for (int j = 0; j < 9; ++j)
     {
         int current_cell = neighbour_cells[j];
@@ -31,7 +31,6 @@ __global__ void compute_vel(Fish* fishes, glm::vec2* vel2, unsigned int* grid_ce
         if (current_cell < 0 || current_cell >= grid_size)
             continue;
 
-        // Iterate through fishes from neighbour cell
         for (int i = grid_cell_start[current_cell]; i < grid_cell_end[current_cell]; ++i)
         {
             if (i == index)
@@ -123,19 +122,8 @@ __global__ void compute_vel(Fish* fishes, glm::vec2* vel2, unsigned int* grid_ce
         fish.vx = (fish.vx / speed) * av.min_speed;
         fish.vy = (fish.vy / speed) * av.min_speed;
     }
-
-    // update velocities
-    vel2[index].x = fish.vx;
-    vel2[index].y = fish.vy;
-}
-
-__global__ void update_pos_vel(Fish* fishes, glm::vec2* vel, unsigned int N, float speed_scale, int width, int height)
-{
-    const auto index = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (index >= N) { return; }
-
-    fishes[index].x += fishes[index].vx * speed_scale;
-    fishes[index].y += fishes[index].vy * speed_scale;
+    fishes[index].x += fish.vx * bp.speed;
+    fishes[index].y += fish.vy * bp.speed;
 
     if (fishes[index].x < 0)
         fishes[index].x = 0;
@@ -146,10 +134,9 @@ __global__ void update_pos_vel(Fish* fishes, glm::vec2* vel, unsigned int N, flo
     if (fishes[index].y > height)
         fishes[index].y = height;
 
-    fishes[index].vx = vel[index].x;
-    fishes[index].vy = vel[index].y;
+    fishes[index].vx = fish.vx;
+    fishes[index].vy = fish.vy;
 }
-
 __global__ void assign_grid_cell(Fish* fishes, unsigned int* grid_cells, unsigned int* indices, float cell_width, unsigned int N, int width)
 {
     const auto index = threadIdx.x + (blockIdx.x * blockDim.x);
@@ -226,10 +213,6 @@ void CudaFish::initialize_simulation(unsigned int N, int width, int height)
         fprintf(stderr, "cudaSetDevice failed!");
     }
 
-    cudaStatus = cudaMalloc((void**)(&velocity_buffer), N * sizeof(glm::vec2));
-    if(cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-    }
     cudaStatus = cudaMalloc((void**)(&grid_cell_indices), N * sizeof(unsigned int));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
@@ -255,7 +238,6 @@ void CudaFish::initialize_simulation(unsigned int N, int width, int height)
 }
 void CudaFish::end_simulation()
 {
-    cudaFree(velocity_buffer);
     cudaFree(indices);
     cudaFree(grid_cell_indices);
     cudaFree(fishes_gpu);
@@ -316,16 +298,10 @@ void CudaFish::update_fishes(Fish* fishes, unsigned int N, BoidsParameters bp, d
 
 
     // Update velocity
-    compute_vel << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu_sorted, velocity_buffer, grid_cell_indices, grid_cell_start, grid_cell_end,
+    compute_vel << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu_sorted, grid_cell_indices, grid_cell_start, grid_cell_end,
         N, bp, grid_size,
         mouseX, mouseY, mouse_pressed, av, width, height);
     cudaDeviceSynchronize();
-
-
-    // Update position
-    update_pos_vel << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu_sorted, velocity_buffer, N, bp.speed, width, height);
-    cudaDeviceSynchronize();
-    
 
     // Copy data to CPU
     cudaStatus = cudaMemcpy(fishes, fishes_gpu_sorted, N * sizeof(Fish), cudaMemcpyDeviceToHost);

@@ -32,7 +32,6 @@ private:
 	int width;
 	int height;
 	AnimationVars av;
-	glm::vec2* velocity_buffer;
 	Fish* fishes_gpu;
 	Fish* fishes_gpu_sorted;
 	unsigned int* indices;
