@@ -14,6 +14,7 @@
 #include <ctime>
 #include <imgui_impl_opengl3.h>
 #include <chrono>
+//#include "BoidsParams.h"
 
 // Window size (if changed, the change is also needed in kernel.cu in width and height)
 #define WINDOW_WIDTH 1600
@@ -24,7 +25,7 @@
 
 void program_loop(CudaFish cf);
 void draw_fishes();
-void update_fish(CudaFish cf, float vr, float md, float r1, float r2, float r3, float speed_scale, bool group_by_species);
+void update_fish(CudaFish cf, float vr, float md, float r1, float r2, float r3, float speed_scale);
 void update_fishes(CudaFish cf);
 void setup_fishes();
 bool init_window();
@@ -56,7 +57,7 @@ int main()
 
 	init_fishes();
 	CudaFish cf;
-	cf.initialize_simulation(N);
+	cf.initialize_simulation(N, WINDOW_WIDTH, WINDOW_HEIGHT);
 
 	program_loop(cf);
 
@@ -227,9 +228,9 @@ void update_fishes(CudaFish cf)
 	glBindVertexArray(0);
 }
 // Run functions to update fishes
-void update_fish(CudaFish cf,float vr, float md, float r1, float r2, float r3, float speed_scale, bool group_by_species)
+void update_fish(CudaFish cf, BoidsParameters bp)
 {
-	cf.update_fishes(fishes, N, vr, md, r1, r2, r3, speed_scale, mouseX, mouseY, mouse_pressed, group_by_species);
+	cf.update_fishes(fishes, N, bp, mouseX, mouseY, mouse_pressed);
 	update_fishes(cf);
 }
 // Draw fishes on screen
@@ -242,7 +243,10 @@ void draw_fishes()
 // Main program loop
 void program_loop(CudaFish cf)
 {
-	// Initalize basic values
+	// Boids params
+	BoidsParameters bp;
+
+
 	float visualRange = 35.f;
 	float protectedRange = 20.f;
 	float cohesion_scale = 0.001f;
@@ -250,6 +254,7 @@ void program_loop(CudaFish cf)
 	float alignment_scale = 0.05f;
 	float speed_scale = 0.1f;
 	bool group_by_species = false;
+
 
 	setup_fishes();
 
@@ -272,18 +277,18 @@ void program_loop(CudaFish cf)
 		glClear(GL_COLOR_BUFFER_BIT);
 
 
-		update_fish(cf, visualRange, protectedRange, cohesion_scale, separation_scale, alignment_scale, speed_scale, group_by_species);
+		update_fish(cf, bp);
 		draw_fishes();
 
 
 		ImGui::Begin("Set properties");
 		ImGui::Text("Liczba rybek %d", N);
-		ImGui::SliderFloat("Visual range of fish", &visualRange, 5.0f, 100.0f);
-		ImGui::SliderFloat("Protected range", &protectedRange, 0.0f, 100.0f);
-		ImGui::SliderFloat("Cohesion rule scale", &cohesion_scale, 0.0f, 0.1f);
-		ImGui::SliderFloat("Separation rule scale", &separation_scale, 0.0f, 0.1f);
-		ImGui::SliderFloat("Alignment rule scale", &alignment_scale, 0.0f, 0.1f);
-		ImGui::SliderFloat("Speed scale", &speed_scale, 0.1f, 0.5f);
+		ImGui::SliderFloat("Visual range of fish", &bp.visionRange, 5.0f, 100.0f);
+		ImGui::SliderFloat("Protected range", &bp.protectedRange, 0.0f, 100.0f);
+		ImGui::SliderFloat("Cohesion rule scale", &bp.cohesion, 0.0f, 0.1f);
+		ImGui::SliderFloat("Separation rule scale", &bp.separation, 0.0f, 0.1f);
+		ImGui::SliderFloat("Alignment rule scale", &bp.alignment, 0.0f, 0.1f);
+		ImGui::SliderFloat("Speed scale", &bp.speed, 0.1f, 0.5f);
 
 		ImGui::End();
 
