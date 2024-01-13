@@ -226,27 +226,27 @@ void CudaFish::initialize_simulation(unsigned int N, int width, int height)
         fprintf(stderr, "cudaSetDevice failed!");
     }
 
-    cudaStatus = cudaMalloc(reinterpret_cast<void**>(&velocity_buffer), N * sizeof(glm::vec2));
+    cudaStatus = cudaMalloc((void**)(&velocity_buffer), N * sizeof(glm::vec2));
     if(cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
     }
-    cudaStatus = cudaMalloc(reinterpret_cast<void**>(&grid_cell_indices), N * sizeof(unsigned int));
+    cudaStatus = cudaMalloc((void**)(&grid_cell_indices), N * sizeof(unsigned int));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
     }
-    cudaStatus = cudaMalloc(reinterpret_cast<void**>(&indices), N * sizeof(unsigned int));
+    cudaStatus = cudaMalloc((void**)(&indices), N * sizeof(unsigned int));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
     }
-    cudaStatus = cudaMalloc(reinterpret_cast<void**>(&fishes_gpu), N * sizeof(Fish));
+    cudaStatus = cudaMalloc((void**)(&fishes_gpu), N * sizeof(Fish));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
     }
-    cudaStatus = cudaMalloc(reinterpret_cast<void**>(&fishes_gpu_sorted), N * sizeof(Fish));
+    cudaStatus = cudaMalloc((void**)(&fishes_gpu_sorted), N * sizeof(Fish));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
     }
-    cudaStatus = cudaMalloc(reinterpret_cast<void**>(&vertices_array_gpu), 15 * N * sizeof(float));
+    cudaStatus = cudaMalloc((void**)(&vertices_array_gpu), 15 * N * sizeof(float));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
     }
@@ -276,11 +276,11 @@ void CudaFish::update_fishes(Fish* fishes, unsigned int N, BoidsParameters bp, d
     int* grid_cell_start;
     int* grid_cell_end;
 
-    cudaStatus = cudaMalloc(reinterpret_cast<void**>(&grid_cell_start), grid_size * sizeof(int));
+    cudaStatus = cudaMalloc((void**)(&grid_cell_start), grid_size * sizeof(int));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
     }
-    cudaStatus = cudaMalloc(reinterpret_cast<void**>(&grid_cell_end), grid_size * sizeof(int));
+    cudaStatus = cudaMalloc((void**)(&grid_cell_end), grid_size * sizeof(int));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
     }
@@ -291,10 +291,12 @@ void CudaFish::update_fishes(Fish* fishes, unsigned int N, BoidsParameters bp, d
         fprintf(stderr, "cudaMemcpy failed!");
     }
 
+
+    // // GRID // // 
+
     // Asign grid cell to every fish
     assign_grid_cell << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu, grid_cell_indices, indices, cell_width, N, width);
     cudaDeviceSynchronize();
-
 
     // Cast arrays to perform thrust operations
     auto thrust_gci = thrust::device_pointer_cast(grid_cell_indices);

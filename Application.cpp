@@ -14,6 +14,8 @@
 #include <ctime>
 #include <imgui_impl_opengl3.h>
 #include <chrono>
+#include "VertexArray.h"
+#include "Renderer.h"
 //#include "BoidsParams.h"
 
 // Window size (if changed, the change is also needed in kernel.cu in width and height)
@@ -21,13 +23,13 @@
 #define WINDOW_HEIGHT 900
 
 // Fish count
-#define N 300
+#define N 3000
 
 void program_loop(CudaFish cf);
-void draw_fishes();
-void update_fish(CudaFish cf, float vr, float md, float r1, float r2, float r3, float speed_scale);
-void update_fishes(CudaFish cf);
-void setup_fishes();
+//void draw_fishes();
+//void update_fish(CudaFish cf, BoidsParameters bp);
+//void update_fishes(CudaFish cf);
+//void setup_fishes();
 bool init_window();
 void init_fishes();
 void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
@@ -37,7 +39,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 // OpenGL variables
 GLFWwindow* window = nullptr;
-GLuint VAO, VBO;
+//GLuint VAO, VBO;
 Shader shaderProgram;
 
 // Fishes info
@@ -172,8 +174,83 @@ bool init_window()
 	return true;
 }
 // Setup fishes pos on screen and pass to VBO 
-void setup_fishes()
+//void setup_fishes()
+//{
+//	float vertices[3 * 5 * N];
+//
+//	for (int i = 0; i < N; ++i)
+//	{
+//		Fish fish = fishes[i];
+//
+//		vertices[i * 3 * 5] = fish.x;;
+//		vertices[i * 3 * 5 + 1] = fish.y;
+//
+//		vertices[i * 3 * 5 + 2] = 0; vertices[i * 3 * 5 + 3] = 0; vertices[i * 3 * 5 + 4] = 0;
+//
+//		vertices[i * 3 * 5 + 5] = fish.x - fish.lenght;
+//		vertices[i * 3 * 5 + 6] = fish.y + fish.width / 2;
+//
+//		vertices[i * 3 * 5 + 7] = 0; vertices[i * 3 * 5 + 8] = 0; vertices[i * 3 * 5 + 9] = 0;
+//
+//		vertices[i * 3 * 5 + 10] = fish.x - fish.lenght;
+//		vertices[i * 3 * 5 + 11] = fish.y - fish.width / 2;
+//
+//		vertices[i * 3 * 5 + 12] = 0; vertices[i * 3 * 5 + 13] = 0; vertices[i * 3 * 5 + 14] = 0;
+//	}
+//
+//
+//
+//	/*glGenVertexArrays(1, &VAO);
+//	glBindVertexArray(VAO);
+//
+//	glGenBuffers(1, &VBO);
+//	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+//	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);*/
+//
+//	//glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+//	//glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(sizeof(float) * 2));
+//
+//	//glEnableVertexAttribArray(0);
+//	//glEnableVertexAttribArray(1);
+//
+//	//glBindBuffer(GL_ARRAY_BUFFER, 0);
+//	//glBindVertexArray(0);
+//}
+// Update fishes pos on screen and pass to VBO
+//void update_fishes(CudaFish cf)
+//{
+//	float vertices[3 * 5 * N];
+//
+//	cf.copy_fishes(fishes, vertices, N);
+//
+//	//glBindVertexArray(VAO);
+//
+//	//glBindBuffer(GL_ARRAY_BUFFER, VBO);
+//	//glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+//
+//	//glBindBuffer(GL_ARRAY_BUFFER, 0);
+//	//glBindVertexArray(0);
+//}
+// Run functions to update fishes
+//void update_fish(CudaFish cf, BoidsParameters bp)
+//{
+//	cf.update_fishes(fishes, N, bp, mouseX, mouseY, mouse_pressed);
+//	update_fishes(cf);
+//}
+// Draw fishes on screen
+//void draw_fishes()
+//{
+//	glBindVertexArray(VAO);
+//	glDrawArrays(GL_TRIANGLES, 0, 3 * N);
+//	glBindVertexArray(0);
+//}
+// Main program loop
+void program_loop(CudaFish cf)
 {
+	// Boids params
+	BoidsParameters bp;
+
+	//setup_fishes();
 	float vertices[3 * 5 * N];
 
 	for (int i = 0; i < N; ++i)
@@ -196,12 +273,15 @@ void setup_fishes()
 		vertices[i * 3 * 5 + 12] = 0; vertices[i * 3 * 5 + 13] = 0; vertices[i * 3 * 5 + 14] = 0;
 	}
 
-	glGenVertexArrays(1, &VAO);
+	VertexArray va;
+	VertexBuffer vb(vertices, sizeof(vertices));
+
+	/*glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
 
 	glGenBuffers(1, &VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_DYNAMIC_DRAW);*/
 
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(sizeof(float) * 2));
@@ -211,52 +291,8 @@ void setup_fishes()
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
-}
-// Update fishes pos on screen and pass to VBO
-void update_fishes(CudaFish cf)
-{
-	float vertices[3 * 5 * N];
 
-	cf.copy_fishes(fishes, vertices, N);
-
-	glBindVertexArray(VAO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-}
-// Run functions to update fishes
-void update_fish(CudaFish cf, BoidsParameters bp)
-{
-	cf.update_fishes(fishes, N, bp, mouseX, mouseY, mouse_pressed);
-	update_fishes(cf);
-}
-// Draw fishes on screen
-void draw_fishes()
-{
-	glBindVertexArray(VAO);
-	glDrawArrays(GL_TRIANGLES, 0, 3 * N);
-	glBindVertexArray(0);
-}
-// Main program loop
-void program_loop(CudaFish cf)
-{
-	// Boids params
-	BoidsParameters bp;
-
-
-	float visualRange = 35.f;
-	float protectedRange = 20.f;
-	float cohesion_scale = 0.001f;
-	float separation_scale = 0.05f;
-	float alignment_scale = 0.05f;
-	float speed_scale = 0.1f;
-	bool group_by_species = false;
-
-
-	setup_fishes();
+	Renderer renderer;
 
 	// Main while loop
 	while (!glfwWindowShouldClose(window))
@@ -274,12 +310,37 @@ void program_loop(CudaFish cf)
 		// Specify the color of the background
 		glClearColor(0.67f, 0.84f, 0.9f, 1.0f);
 		// Clean the back buffer and assign the new color to it
-		glClear(GL_COLOR_BUFFER_BIT);
+		//glClear(GL_COLOR_BUFFER_BIT);
+		renderer.Clear();
+
+		//update_fish(cf, bp);
 
 
-		update_fish(cf, bp);
-		draw_fishes();
+		cf.update_fishes(fishes, N, bp, mouseX, mouseY, mouse_pressed);
+		float vertices[3 * 5 * N];
 
+		cf.copy_fishes(fishes, vertices, N);
+
+		/*glBindVertexArray(VAO);
+
+		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+		glBindVertexArray(0);*/
+
+		//draw_fishes();
+
+		//glBindVertexArray(VAO);
+		//glDrawArrays(GL_TRIANGLES, 0, 3 * N);
+		//glBindVertexArray(0);
+		va.Bind();
+		vb.Bind();
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+		vb.Unbind();
+		va.Unbind();
+
+		renderer.Draw(va, 3 * N);
 
 		ImGui::Begin("Set properties");
 		ImGui::Text("Liczba rybek %d", N);
@@ -308,8 +369,8 @@ void program_loop(CudaFish cf)
 
 
 	// Clear memory and end simulation
-	glDeleteVertexArrays(1, &VAO);
-	glDeleteBuffers(1, &VBO);
+	//glDeleteVertexArrays(1, &VAO);
+	//glDeleteBuffers(1, &VBO);
 	shaderProgram.unbind();
 
 	ImGui_ImplOpenGL3_Shutdown();
