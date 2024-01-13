@@ -5,28 +5,10 @@
 #include <glm/glm.hpp>
 #include <thrust/gather.h>
 
-// Const variables
-constexpr unsigned int block_size = 256;
-constexpr float max_speed = 10.0f;
-constexpr float min_speed = 2.0f;
-constexpr float turn_factor = 2.f;
-constexpr float height = 900.f;
-constexpr float width = 1600.f;
-constexpr float margin = 50;
 
-
-// Assign helpful variables
-//glm::vec2* velocity_buffer = nullptr;
-//Fish* fishes_gpu = nullptr;
-//Fish* fishes_gpu_sorted = nullptr;
-//unsigned int* indices = nullptr;
-//unsigned int* grid_cell_indices = nullptr;
-//float* vertices_array_gpu = nullptr;
-
-// Compute velocity kernel function
 __global__ void compute_vel(Fish* fishes, glm::vec2* vel2, unsigned int* grid_cell_indices, int* grid_cell_start, int* grid_cell_end,
-    unsigned int N, float visualRange, float protectedRange, float cohesion_scale, float separation_scale, float alignment_scale, unsigned int grid_size,
-    double mouseX, double mouseY, bool mouse_pressed, bool group_by_species)
+    unsigned int N, BoidsParameters bp, unsigned int grid_size,
+    double mouseX, double mouseY, bool mouse_pressed, AnimationVars av, int width, int height)
 {
     const auto index = threadIdx.x + (blockIdx.x * blockDim.x);
     if (index >= N) { return; }
@@ -37,7 +19,7 @@ __global__ void compute_vel(Fish* fishes, glm::vec2* vel2, unsigned int* grid_ce
 
     // Find neighbours cells
     int cell_index = grid_cell_indices[index];
-    int row_cells = width / (2 * visualRange) + 1;
+    int row_cells = width / (2 * bp.visionRange) + 1;
     int neighbour_cells[] = {cell_index, cell_index + 1, cell_index - 1, cell_index + row_cells, cell_index - row_cells, cell_index - row_cells - 1,
                     cell_index - row_cells + 1, cell_index + row_cells - 1, cell_index + row_cells + 1 };
 
@@ -60,16 +42,16 @@ __global__ void compute_vel(Fish* fishes, glm::vec2* vel2, unsigned int* grid_ce
 
             // Check if fish is in distance
             float distance = glm::sqrt(dx * dx + dy * dy);
-            if (glm::abs(dx) < visualRange && glm::abs(dy))
+            if (glm::abs(dx) < bp.visionRange && glm::abs(dy))
             {
 
                 float distance2 = dx * dx + dy * dy;
-                if (distance2 < protectedRange)
+                if (distance2 < bp.protectedRange)
                 {
                     close_dx += fish.x - fishes[i].x;
                     close_dy += fish.y - fishes[i].y;
                 }
-                else if (distance2 < visualRange * visualRange)
+                else if (distance2 < bp.visionRange * bp.visionRange)
                 {
                     xpos_avg += fishes[i].x;
                     ypos_avg += fishes[i].y;
@@ -91,55 +73,55 @@ __global__ void compute_vel(Fish* fishes, glm::vec2* vel2, unsigned int* grid_ce
         yvel_avg = yvel_avg / neighboring_boids;
 
         // Add the centering / matching contributions to velocity
-        fish.vx = (fish.vx + (xpos_avg - fish.x) * cohesion_scale + (xvel_avg - fish.vx) * alignment_scale);
-        fish.vy = (fish.vy + (ypos_avg - fish.y) * cohesion_scale + (yvel_avg - fish.vy) * alignment_scale);
+        fish.vx = (fish.vx + (xpos_avg - fish.x) * bp.cohesion + (xvel_avg - fish.vx) * bp.alignment);
+        fish.vy = (fish.vy + (ypos_avg - fish.y) * bp.cohesion + (yvel_avg - fish.vy) * bp.alignment);
 
     }
     // Add the avoidance contribution to velocity
-    fish.vx = fish.vx + (close_dx * separation_scale);
-    fish.vy = fish.vy + (close_dy * separation_scale);
+    fish.vx = fish.vx + (close_dx * bp.separation);
+    fish.vy = fish.vy + (close_dy * bp.separation);
 
     // keep fishes in bounds
-    if (fish.x < margin)
-        fish.vx += turn_factor;
-    if (fish.x > width - margin)
-        fish.vx -= turn_factor;
+    if (fish.x < av.margin)
+        fish.vx += av.turn_factor;
+    if (fish.x > width - av.margin)
+        fish.vx -= av.turn_factor;
 
-    if (fish.y < margin)
-        fish.vy += turn_factor;
-    if (fish.y > height - margin)
-        fish.vy -= turn_factor;
+    if (fish.y < av.margin)
+        fish.vy += av.turn_factor;
+    if (fish.y > height - av.margin)
+        fish.vy -= av.turn_factor;
 
     // avoid coursor if mouse pressed
     if (mouse_pressed)
     {
         double x_diff = mouseX - fish.x;
         double y_diff = mouseY - fish.y;
-        if (x_diff < margin && x_diff > -margin && y_diff < margin && y_diff > -margin)
+        if (x_diff < av.margin && x_diff > -av.margin && y_diff < av.margin && y_diff > -av.margin)
         {
-            if (x_diff > -margin && x_diff < 0)
-                fish.vx += turn_factor;
-            if (x_diff < margin && x_diff >= 0)
-                fish.vx -= turn_factor;
+            if (x_diff > -av.margin && x_diff < 0)
+                fish.vx += av.turn_factor;
+            if (x_diff < av.margin && x_diff >= 0)
+                fish.vx -= av.turn_factor;
 
-            if(y_diff > -margin && y_diff < 0)
-                fish.vy += turn_factor;
-            if (y_diff < margin && y_diff >= 0)
-                fish.vy -= turn_factor;
+            if(y_diff > -av.margin && y_diff < 0)
+                fish.vy += av.turn_factor;
+            if (y_diff < av.margin && y_diff >= 0)
+                fish.vy -= av.turn_factor;
         }
     }
 
     // check if speed is < max_speed
     float speed = glm::sqrt(fish.vx * fish.vx + fish.vy * fish.vy);
-    if (speed > max_speed)
+    if (speed > av.max_speed)
     {
-        fish.vx = (fish.vx / speed) * max_speed;
-        fish.vy = (fish.vy / speed) * max_speed;
+        fish.vx = (fish.vx / speed) * av.max_speed;
+        fish.vy = (fish.vy / speed) * av.max_speed;
     }
-    if (speed < min_speed)
+    if (speed < av.min_speed)
     {
-        fish.vx = (fish.vx / speed) * min_speed;
-        fish.vy = (fish.vy / speed) * min_speed;
+        fish.vx = (fish.vx / speed) * av.min_speed;
+        fish.vy = (fish.vy / speed) * av.min_speed;
     }
 
     // update velocities
@@ -147,14 +129,13 @@ __global__ void compute_vel(Fish* fishes, glm::vec2* vel2, unsigned int* grid_ce
     vel2[index].y = fish.vy;
 }
 
-// Update pos and velocity kernel function
-__global__ void update_pos_vel(Fish* fishes, glm::vec2* vel, unsigned int N, float speed_scale)
+__global__ void update_pos_vel(Fish* fishes, glm::vec2* vel, unsigned int N, float speed_scale, int width, int height)
 {
     const auto index = threadIdx.x + (blockIdx.x * blockDim.x);
     if (index >= N) { return; }
 
-    fishes[index].x += vel[index].x * speed_scale;
-    fishes[index].y += vel[index].y * speed_scale;
+    fishes[index].x += fishes[index].vx * speed_scale;
+    fishes[index].y += fishes[index].vy * speed_scale;
 
     if (fishes[index].x < 0)
         fishes[index].x = 0;
@@ -169,8 +150,7 @@ __global__ void update_pos_vel(Fish* fishes, glm::vec2* vel, unsigned int N, flo
     fishes[index].vy = vel[index].y;
 }
 
-// Assign grid cell to fish
-__global__ void assign_grid_cell(Fish* fishes, unsigned int* grid_cells, unsigned int* indices, float cell_width, unsigned int N)
+__global__ void assign_grid_cell(Fish* fishes, unsigned int* grid_cells, unsigned int* indices, float cell_width, unsigned int N, int width)
 {
     const auto index = threadIdx.x + (blockIdx.x * blockDim.x);
     if (index >= N) { return; }
@@ -187,7 +167,6 @@ __global__ void assign_grid_cell(Fish* fishes, unsigned int* grid_cells, unsigne
     indices[index] = index;
 }
 
-// Compute start and end indices of cell
 __global__ void compute_start_end_cell(unsigned int* grid_cell_indices, int* grid_cell_start, int* grid_cell_end, unsigned int N)
 {
     const auto index = threadIdx.x + (blockIdx.x * blockDim.x);
@@ -212,7 +191,6 @@ __global__ void compute_start_end_cell(unsigned int* grid_cell_indices, int* gri
     }
 }
 
-// Copy new vertices to array
 __global__ void copy_fishes_kernel(Fish* fishes, float* vertices, unsigned int N)
 {
     const auto i = threadIdx.x + (blockIdx.x * blockDim.x);
@@ -235,10 +213,12 @@ __global__ void copy_fishes_kernel(Fish* fishes, float* vertices, unsigned int N
 
     vertices[i * 3 * 5 + 12] = 0; vertices[i * 3 * 5 + 13] = 0; vertices[i * 3 * 5 + 14] = 0;
 }
-
-// Allocate needed memory
-void CudaFish::initialize_simulation(unsigned int N)
+void CudaFish::initialize_simulation(unsigned int N, int width, int height)
 {
+    AnimationVars av();
+    this->width = width;
+    this->height = height;
+
     cudaError_t cudaStatus;
 
     cudaStatus = cudaSetDevice(0);
@@ -273,7 +253,6 @@ void CudaFish::initialize_simulation(unsigned int N)
 
     cudaDeviceSynchronize();
 }
-// Deallocate memory
 void CudaFish::end_simulation()
 {
     cudaFree(velocity_buffer);
@@ -283,15 +262,14 @@ void CudaFish::end_simulation()
     cudaFree(fishes_gpu_sorted);
     cudaFree(vertices_array_gpu);
 }
-// Function to upddate fish pos and vel
-void CudaFish::update_fishes(Fish* fishes, unsigned int N, float vr, float md, float r1, float r2, float r3, float speed_scale, double mouseX, double mouseY, bool mouse_pressed, bool group_by_species)
+void CudaFish::update_fishes(Fish* fishes, unsigned int N, BoidsParameters bp, double mouseX, double mouseY, bool mouse_pressed)
 {
     cudaError_t cudaStatus;
     
-    const dim3 full_blocks_per_grid((N + block_size - 1) / block_size);
-    const dim3 threads_per_block(block_size);
+    const dim3 full_blocks_per_grid((N + av.block_size - 1) / av.block_size);
+    const dim3 threads_per_block(av.block_size);
 
-    float cell_width = 2 * vr;
+    float cell_width = 2 * bp.visionRange;
     unsigned int grid_size = (width / cell_width + 1) * (height / cell_width + 1);
 
     // Allocate memory for start and end indices
@@ -314,7 +292,7 @@ void CudaFish::update_fishes(Fish* fishes, unsigned int N, float vr, float md, f
     }
 
     // Asign grid cell to every fish
-    assign_grid_cell << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu, grid_cell_indices, indices, cell_width, N);
+    assign_grid_cell << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu, grid_cell_indices, indices, cell_width, N, width);
     cudaDeviceSynchronize();
 
 
@@ -337,13 +315,13 @@ void CudaFish::update_fishes(Fish* fishes, unsigned int N, float vr, float md, f
 
     // Update velocity
     compute_vel << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu_sorted, velocity_buffer, grid_cell_indices, grid_cell_start, grid_cell_end,
-        N, vr, md, r1, r2, r3, grid_size,
-        mouseX, mouseY, mouse_pressed, group_by_species);
+        N, bp, grid_size,
+        mouseX, mouseY, mouse_pressed, av, width, height);
     cudaDeviceSynchronize();
 
 
     // Update position
-    update_pos_vel << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu_sorted, velocity_buffer, N, speed_scale);
+    update_pos_vel << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu_sorted, velocity_buffer, N, bp.speed, width, height);
     cudaDeviceSynchronize();
     
 
@@ -362,8 +340,8 @@ void CudaFish::copy_fishes(Fish* fishes, float* vertices_array, unsigned int N)
 {
     cudaError_t cudaStatus;
 
-    const dim3 full_blocks_per_grid((N + block_size - 1) / block_size);
-    const dim3 threads_per_block(block_size);
+    const dim3 full_blocks_per_grid((N + av.block_size - 1) / av.block_size);
+    const dim3 threads_per_block(av.block_size);
 
     // Copy data to gpu
     cudaStatus = cudaMemcpy(fishes_gpu, fishes, N * sizeof(Fish), cudaMemcpyHostToDevice);
