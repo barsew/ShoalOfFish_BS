@@ -137,16 +137,6 @@ __global__ void kernel_fish(Fish* fishes, unsigned int* grid_indices, int* grid_
 
     fishes[ind].x += fish.vx * bp.speed;
     fishes[ind].y += fish.vy * bp.speed;
-
-    if (fishes[ind].x < 0)
-        fishes[ind].x = 0;
-    if (fishes[ind].x > width)
-        fishes[ind].x = width;
-    if (fishes[ind].y < 0)
-        fishes[ind].y = 0;
-    if (fishes[ind].y > height)
-        fishes[ind].y = height;
-
     fishes[ind].vx = fish.vx;
     fishes[ind].vy = fish.vy;
 }
