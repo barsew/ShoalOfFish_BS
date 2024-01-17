@@ -20,15 +20,13 @@
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1000
 
-// nukber od fishes
+// number od fishes
 #define N 10000
 
-void program_loop(CudaFish cf);
 bool init_window();
 void init_fishes();
-void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+void cursor_callback(GLFWwindow* window, double x, double y);
+void mouse_callback(GLFWwindow* window, int button, int action, int mods);
 
 
 GLFWwindow* window = nullptr;
@@ -36,7 +34,7 @@ Shader shader;
 
 // Fishes info
 Fish fishes[N];
-float vertices[3 * 5 * N];
+float vertices[6 * N];
 
 
 // Mouse avoid
@@ -53,23 +51,114 @@ int main()
 
 	init_fishes();
 	CudaFish cf;
-	cf.initialize_simulation(N, WINDOW_WIDTH, WINDOW_HEIGHT);
+	cf.memory_alloc(N, WINDOW_WIDTH, WINDOW_HEIGHT);
 
-	program_loop(cf);
+	// Boids params
+	BoidsParameters bp;
+
+	for (int i = 0; i < N; ++i)
+	{
+		Fish fish = fishes[i];
+
+		vertices[6 * i] = fish.x;;
+		vertices[6 * i + 1] = fish.y;
+
+		vertices[6 * i + 2] = fish.x - fish.lenght;
+		vertices[6 * i + 3] = fish.y + fish.width / 2;
+
+		vertices[6 * i + 4] = fish.x - fish.lenght;
+		vertices[6 * i + 5] = fish.y - fish.width / 2;
+	}
+
+	VertexArray va;
+	VertexBuffer vb(vertices, sizeof(vertices));
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	Renderer renderer;
+
+	while (!glfwWindowShouldClose(window))
+	{
+		auto start = std::chrono::high_resolution_clock::now();
+
+		// Take care of all GLFW events
+		glfwPollEvents();
+
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
+
+		// Clean the back buffer and assign the new color to it
+		glClearColor(0.3f, 0.3f, 0.6f, 1.0f);
+		renderer.Clear();
 
 
+		cf.move_fishes(fishes, N, bp, mouseX, mouseY, mouse_pressed);
+
+		float vertices[6 * N];
+		cf.copy_fishes(fishes, vertices, N);
+
+		va.Bind();
+		vb.Bind();
+		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+		vb.Unbind();
+		va.Unbind();
+
+		renderer.Draw(va, 3 * N);
+
+		ImGui::Begin("Set properties");
+		ImGui::Text("Liczba rybek %d", N);
+		ImGui::SliderFloat("Visual range of fish", &bp.visionRange, 5.0f, 100.0f);
+		ImGui::SliderFloat("Protected range", &bp.protectedRange, 0.0f, 100.0f);
+		ImGui::SliderFloat("Cohesion rule scale", &bp.cohesion, 0.0f, 0.1f);
+		ImGui::SliderFloat("Separation rule scale", &bp.separation, 0.0f, 0.1f);
+		ImGui::SliderFloat("Alignment rule scale", &bp.alignment, 0.0f, 0.1f);
+		ImGui::SliderFloat("Speed scale", &bp.speed, 0.1f, 0.5f);
+
+		ImGui::End();
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+		// Swap the back buffer with the front buffer
+		//glfwSwapBuffers(window);
+		glFlush();
+
+		// fps
+		auto end = std::chrono::high_resolution_clock::now();
+		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+		float fps = 1000000.0f / static_cast<float>(duration);
+		std::cout << "FPS: " << fps << std::endl;
+	}
+
+	// Clear memory
+	shader.unbind();
+
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+	cf.free_memory();
+
+	// Delete window before ending the program
+	glfwDestroyWindow(window);
+	// Terminate GLFW before ending the program
+	glfwTerminate();
 
 	return 0;
 }
 
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+void mouse_callback(GLFWwindow* window, int button, int action, int mods)
 {
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 	{
-		double xpos, ypos;
-		glfwGetCursorPos(window, &xpos, &ypos);
-		mouseX = xpos;
-		mouseY = WINDOW_HEIGHT - ypos;
+		double x;
+		double y;
+		glfwGetCursorPos(window, &x, &y);
+		mouseX = x;
+		mouseY = WINDOW_HEIGHT - y;
 		mouse_pressed = true;
 	}
 	else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
@@ -77,12 +166,12 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 		mouse_pressed = false;
 	}
 }
-void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+void cursor_callback(GLFWwindow* window, double x, double y)
 {
 	if (mouse_pressed)
 	{
-		mouseX = xpos;
-		mouseY = WINDOW_HEIGHT - ypos;
+		mouseX = x;
+		mouseY = WINDOW_HEIGHT - y;
 	}
 }
 void init_fishes()
@@ -140,8 +229,8 @@ bool init_window()
 		return false;
 	}
 
-	glfwSetMouseButtonCallback(window, mouse_button_callback);
-	glfwSetCursorPosCallback(window, cursor_position_callback);
+	glfwSetMouseButtonCallback(window, mouse_callback);
+	glfwSetCursorPosCallback(window, cursor_callback);
 
 	// Introduce the window into the current context
 	glfwMakeContextCurrent(window);
@@ -163,115 +252,4 @@ bool init_window()
 	ImGui_ImplOpenGL3_Init("#version 330");
 
 	return true;
-}
-
-void program_loop(CudaFish cf)
-{
-	// Boids params
-	BoidsParameters bp;
-
-	for (int i = 0; i < N; ++i)
-	{
-		Fish fish = fishes[i];
-
-		vertices[i * 3 * 5] = fish.x;;
-		vertices[i * 3 * 5 + 1] = fish.y;
-
-		vertices[i * 3 * 5 + 2] = 0; vertices[i * 3 * 5 + 3] = 0; vertices[i * 3 * 5 + 4] = 0;
-
-		vertices[i * 3 * 5 + 5] = fish.x - fish.lenght;
-		vertices[i * 3 * 5 + 6] = fish.y + fish.width / 2;
-
-		vertices[i * 3 * 5 + 7] = 0; vertices[i * 3 * 5 + 8] = 0; vertices[i * 3 * 5 + 9] = 0;
-
-		vertices[i * 3 * 5 + 10] = fish.x - fish.lenght;
-		vertices[i * 3 * 5 + 11] = fish.y - fish.width / 2;
-
-		vertices[i * 3 * 5 + 12] = 0; vertices[i * 3 * 5 + 13] = 0; vertices[i * 3 * 5 + 14] = 0;
-	}
-
-	VertexArray va;
-	VertexBuffer vb(vertices, sizeof(vertices));
-
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(sizeof(float) * 2));
-
-	glEnableVertexAttribArray(0);
-	glEnableVertexAttribArray(1);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
-	Renderer renderer;
-
-	// Main while loop
-	while (!glfwWindowShouldClose(window))
-	{
-		// Start fps timer
-		auto startFrameTime = std::chrono::high_resolution_clock::now();
-
-		// Take care of all GLFW events
-		glfwPollEvents();
-
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
-
-		// Specify the color of the background
-		glClearColor(0.3f, 0.3f, 0.6f, 1.0f);
-		// Clean the back buffer and assign the new color to it
-		renderer.Clear();
-
-
-		cf.update_fishes(fishes, N, bp, mouseX, mouseY, mouse_pressed);
-
-		float vertices[3 * 5 * N];
-		cf.copy_fishes(fishes, vertices, N);
-
-		va.Bind();
-		vb.Bind();
-		glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-		vb.Unbind();
-		va.Unbind();
-
-		renderer.Draw(va, 3 * N);
-
-		ImGui::Begin("Set properties");
-		ImGui::Text("Liczba rybek %d", N);
-		ImGui::SliderFloat("Visual range of fish", &bp.visionRange, 5.0f, 100.0f);
-		ImGui::SliderFloat("Protected range", &bp.protectedRange, 0.0f, 100.0f);
-		ImGui::SliderFloat("Cohesion rule scale", &bp.cohesion, 0.0f, 0.1f);
-		ImGui::SliderFloat("Separation rule scale", &bp.separation, 0.0f, 0.1f);
-		ImGui::SliderFloat("Alignment rule scale", &bp.alignment, 0.0f, 0.1f);
-		ImGui::SliderFloat("Speed scale", &bp.speed, 0.1f, 0.5f);
-
-		ImGui::End();
-
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-		// Swap the back buffer with the front buffer
-		//glfwSwapBuffers(window);
-		glFlush();
-
-		// Count and display fps
-		auto endFrameTime = std::chrono::high_resolution_clock::now();
-		auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endFrameTime - startFrameTime).count();
-		float fps = 1000000.0f / static_cast<float>(duration);
-		std::cout << "FPS: " << fps << std::endl;
-	}
-
-
-	// Clear memory
-	shader.unbind();
-
-	ImGui_ImplOpenGL3_Shutdown();
-	ImGui_ImplGlfw_Shutdown();
-	ImGui::DestroyContext();
-	cf.end_simulation();
-
-	// Delete window before ending the program
-	glfwDestroyWindow(window);
-	// Terminate GLFW before ending the program
-	glfwTerminate();
 }

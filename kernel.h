@@ -25,9 +25,9 @@ typedef struct AnimationVars
 class CudaFish
 {
 public:
-	void initialize_simulation(unsigned int N, int width, int height);
-	void end_simulation();
-	void update_fishes(Fish* fishes, unsigned int N, BoidsParameters bp, double mouseX, double mouseY, bool mouse_pressed);
+	void memory_alloc(unsigned int N, int width, int height);
+	void free_memory();
+	void move_fishes(Fish* fishes, unsigned int N, BoidsParameters bp, double mouseX, double mouseY, bool mouse_pressed);
 	void copy_fishes(Fish* fishes, float* vertices_array, unsigned int N);
 private:
 	int width;
