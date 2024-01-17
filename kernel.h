@@ -14,10 +14,11 @@
 typedef struct AnimationVars
 {
 	unsigned int block_size = 256;
-	float max_speed = 10.0f;
+	float max_speed = 3.0f;
 	float min_speed = 2.0f;
-	float margin = 50;
+	float margin = 50.0f;
 	float turn_factor = 2.f;
+	float mouse_dist = 100.0f;
 };
 
 
@@ -33,9 +34,8 @@ private:
 	int height;
 	AnimationVars av;
 	Fish* fishes_gpu;
-	Fish* fishes_gpu_sorted;
 	unsigned int* indices;
-	unsigned int* grid_cell_indices;
+	unsigned int* grid_indices;
 	float* vertices_array_gpu;
 };
 

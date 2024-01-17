@@ -8,14 +8,18 @@
 
 __global__ void compute_vel(Fish* fishes, unsigned int* grid_cell_indices, int* grid_cell_start, int* grid_cell_end,
     unsigned int N, BoidsParameters bp, unsigned int grid_size,
-    double mouseX, double mouseY, bool mouse_pressed, AnimationVars av, int width, int height)
-{
+    double mouseX, double mouseY, bool mouse_pressed, AnimationVars av, int width, int height, unsigned int* indicies)
+{ 
+    // fishes_gpu_sorted[i] = fishes_gpu[indicies[i]]
     const auto index = threadIdx.x + (blockIdx.x * blockDim.x);
     if (index >= N) { return; }
 
+    int ind = indicies[index];
+    if (ind >= N) { return; }
+
     float xpos_avg = 0.0f, ypos_avg = 0.0f, xvel_avg = 0.0f, yvel_avg = 0.0f, neighboring_boids = 0.0f, close_dx = 0.0f, close_dy = 0.0f;
 
-    Fish fish = fishes[index];
+    Fish fish = fishes[ind]; //z// 
 
     //  neighbours cells
     int cell_index = grid_cell_indices[index];
@@ -33,11 +37,11 @@ __global__ void compute_vel(Fish* fishes, unsigned int* grid_cell_indices, int* 
 
         for (int i = grid_cell_start[current_cell]; i < grid_cell_end[current_cell]; ++i)
         {
-            if (i == index)
+            if (i == ind) //z//
                 continue;
 
-            float dx = fish.x - fishes[i].x;
-            float dy = fish.y - fishes[i].y;
+            float dx = fish.x - fishes[indicies[i]].x;  //z//
+            float dy = fish.y - fishes[indicies[i]].y; //z//
 
             // Check if fish is in distance
             float distance = glm::sqrt(dx * dx + dy * dy);
@@ -47,15 +51,15 @@ __global__ void compute_vel(Fish* fishes, unsigned int* grid_cell_indices, int* 
                 float distance2 = dx * dx + dy * dy;
                 if (distance2 < bp.protectedRange)
                 {
-                    close_dx += fish.x - fishes[i].x;
-                    close_dy += fish.y - fishes[i].y;
+                    close_dx += fish.x - fishes[indicies[i]].x;  //z//
+                    close_dy += fish.y - fishes[indicies[i]].y;  //z//
                 }
                 else if (distance2 < bp.visionRange * bp.visionRange)
                 {
-                    xpos_avg += fishes[i].x;
-                    ypos_avg += fishes[i].y;
-                    xvel_avg += fishes[i].vx;
-                    yvel_avg += fishes[i].vy;
+                    xpos_avg += fishes[indicies[i]].x; //z//
+                    ypos_avg += fishes[indicies[i]].y; //z//
+                    xvel_avg += fishes[indicies[i]].vx; //z//
+                    yvel_avg += fishes[indicies[i]].vy; //z//
 
                     neighboring_boids += 1;
                 }
@@ -91,26 +95,26 @@ __global__ void compute_vel(Fish* fishes, unsigned int* grid_cell_indices, int* 
     if (fish.y > height - av.margin)
         fish.vy -= av.turn_factor;
 
-    // avoid coursor if mouse pressed
     if (mouse_pressed)
     {
+        double delta_radius = glm::sqrt((mouseX - fish.x) * (mouseX - fish.x) + (mouseY - fish.y) * (mouseY - fish.y));
         double x_diff = mouseX - fish.x;
         double y_diff = mouseY - fish.y;
-        if (x_diff < av.margin && x_diff > -av.margin && y_diff < av.margin && y_diff > -av.margin)
+        if (delta_radius < av.mouse_dist)
         {
-            if (x_diff > -av.margin && x_diff < 0)
+            if (x_diff > -av.mouse_dist && x_diff < 0)
                 fish.vx += av.turn_factor;
-            if (x_diff < av.margin && x_diff >= 0)
+            if (x_diff < av.mouse_dist && x_diff >= 0)
                 fish.vx -= av.turn_factor;
 
-            if(y_diff > -av.margin && y_diff < 0)
+            if(y_diff > -av.mouse_dist && y_diff < 0)
                 fish.vy += av.turn_factor;
-            if (y_diff < av.margin && y_diff >= 0)
+            if (y_diff < av.mouse_dist && y_diff >= 0)
                 fish.vy -= av.turn_factor;
         }
     }
 
-    // check if speed is < max_speed
+    // check if speed is < max_speed, min_speed
     float speed = glm::sqrt(fish.vx * fish.vx + fish.vy * fish.vy);
     if (speed > av.max_speed)
     {
@@ -122,20 +126,21 @@ __global__ void compute_vel(Fish* fishes, unsigned int* grid_cell_indices, int* 
         fish.vx = (fish.vx / speed) * av.min_speed;
         fish.vy = (fish.vy / speed) * av.min_speed;
     }
-    fishes[index].x += fish.vx * bp.speed;
-    fishes[index].y += fish.vy * bp.speed;
 
-    if (fishes[index].x < 0)
-        fishes[index].x = 0;
-    if (fishes[index].x > width)
-        fishes[index].x = width;
-    if (fishes[index].y < 0)
-        fishes[index].y = 0;
-    if (fishes[index].y > height)
-        fishes[index].y = height;
+    fishes[ind].x += fish.vx * bp.speed;
+    fishes[ind].y += fish.vy * bp.speed;
 
-    fishes[index].vx = fish.vx;
-    fishes[index].vy = fish.vy;
+    if (fishes[ind].x < 0)
+        fishes[ind].x = 0;
+    if (fishes[ind].x > width)
+        fishes[ind].x = width;
+    if (fishes[ind].y < 0)
+        fishes[ind].y = 0;
+    if (fishes[ind].y > height)
+        fishes[ind].y = height;
+
+    fishes[ind].vx = fish.vx;
+    fishes[ind].vy = fish.vy;
 }
 __global__ void assign_grid_cell(Fish* fishes, unsigned int* grid_cells, unsigned int* indices, float cell_width, unsigned int N, int width)
 {
@@ -213,7 +218,7 @@ void CudaFish::initialize_simulation(unsigned int N, int width, int height)
         fprintf(stderr, "cudaSetDevice failed!");
     }
 
-    cudaStatus = cudaMalloc((void**)(&grid_cell_indices), N * sizeof(unsigned int));
+    cudaStatus = cudaMalloc((void**)(&grid_indices), N * sizeof(unsigned int));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
     }
@@ -222,10 +227,6 @@ void CudaFish::initialize_simulation(unsigned int N, int width, int height)
         fprintf(stderr, "cudaMalloc failed!");
     }
     cudaStatus = cudaMalloc((void**)(&fishes_gpu), N * sizeof(Fish));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-    }
-    cudaStatus = cudaMalloc((void**)(&fishes_gpu_sorted), N * sizeof(Fish));
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMalloc failed!");
     }
@@ -239,9 +240,8 @@ void CudaFish::initialize_simulation(unsigned int N, int width, int height)
 void CudaFish::end_simulation()
 {
     cudaFree(indices);
-    cudaFree(grid_cell_indices);
+    cudaFree(grid_indices);
     cudaFree(fishes_gpu);
-    cudaFree(fishes_gpu_sorted);
     cudaFree(vertices_array_gpu);
 }
 void CudaFish::update_fishes(Fish* fishes, unsigned int N, BoidsParameters bp, double mouseX, double mouseY, bool mouse_pressed)
@@ -277,34 +277,29 @@ void CudaFish::update_fishes(Fish* fishes, unsigned int N, BoidsParameters bp, d
     // // GRID // // 
 
     // Asign grid cell to every fish
-    assign_grid_cell << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu, grid_cell_indices, indices, cell_width, N, width);
+    assign_grid_cell << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu, grid_indices, indices, cell_width, N, width);
     cudaDeviceSynchronize();
 
     // Cast arrays to perform thrust operations
-    auto thrust_gci = thrust::device_pointer_cast(grid_cell_indices);
+    auto thrust_gci = thrust::device_pointer_cast(grid_indices);
     auto thrust_i = thrust::device_pointer_cast(indices);
     auto thrust_f = thrust::device_pointer_cast(fishes_gpu);
-    auto thrust_fs = thrust::device_pointer_cast(fishes_gpu_sorted);
 
     // Sort fishes indicies by grid cell
-    thrust::sort_by_key(thrust_gci, thrust_gci + N, thrust_i);
+    thrust::sort_by_key(thrust_gci, thrust_gci + N, thrust_i); 
 
     // Compute start and end indices of grid cell
-    compute_start_end_cell << <full_blocks_per_grid, threads_per_block >> > (grid_cell_indices, grid_cell_start, grid_cell_end, N);
+    compute_start_end_cell << <full_blocks_per_grid, threads_per_block >> > (grid_indices, grid_cell_start, grid_cell_end, N);
     cudaDeviceSynchronize();
 
-    // Sort fish pos and vel by indices
-    thrust::gather(thrust_i, thrust_i + N, thrust_f, thrust_fs);
-
-
-    // Update velocity
-    compute_vel << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu_sorted, grid_cell_indices, grid_cell_start, grid_cell_end,
+    // Update fish
+    compute_vel << <full_blocks_per_grid, threads_per_block >> > (fishes_gpu, grid_indices, grid_cell_start, grid_cell_end,
         N, bp, grid_size,
-        mouseX, mouseY, mouse_pressed, av, width, height);
+        mouseX, mouseY, mouse_pressed, av, width, height, indices); //z//
     cudaDeviceSynchronize();
 
     // Copy data to CPU
-    cudaStatus = cudaMemcpy(fishes, fishes_gpu_sorted, N * sizeof(Fish), cudaMemcpyDeviceToHost);
+    cudaStatus = cudaMemcpy(fishes, fishes_gpu, N * sizeof(Fish), cudaMemcpyDeviceToHost);
     if (cudaStatus != cudaSuccess) {
         fprintf(stderr, "cudaMemcpy failed!");
     }
