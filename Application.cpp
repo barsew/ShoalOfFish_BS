@@ -35,15 +35,11 @@ Shader shader;
 // Fishes info
 Fish fishes[N];
 float vertices[6 * N];
-
-
-// Mouse avoid
 double mouseX = 0;
 double mouseY = 0;
 bool mouse_pressed = false;
 
 
-// Main function
 int main()
 {
 	if (init_window() == -1)
@@ -91,10 +87,8 @@ int main()
 		ImGui_ImplGlfw_NewFrame();
 		ImGui::NewFrame();
 
-		// Clean the back buffer and assign the new color to it
 		glClearColor(0.3f, 0.3f, 0.6f, 1.0f);
 		renderer.Clear();
-
 
 		cf.move_fishes(fishes, N, bp, mouseX, mouseY, mouse_pressed);
 
@@ -156,7 +150,9 @@ void mouse_callback(GLFWwindow* window, int button, int action, int mods)
 	{
 		double x;
 		double y;
+
 		glfwGetCursorPos(window, &x, &y);
+
 		mouseX = x;
 		mouseY = WINDOW_HEIGHT - y;
 		mouse_pressed = true;
