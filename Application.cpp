@@ -56,14 +56,63 @@ int main()
 	{
 		Fish fish = fishes[i];
 
-		vertices[6 * i] = fish.x;;
+		/*vertices[6 * i] = fish.x;;
 		vertices[6 * i + 1] = fish.y;
 
 		vertices[6 * i + 2] = fish.x - fish.lenght;
 		vertices[6 * i + 3] = fish.y + fish.width / 2;
 
 		vertices[6 * i + 4] = fish.x - fish.lenght;
-		vertices[6 * i + 5] = fish.y - fish.width / 2;
+		vertices[6 * i + 5] = fish.y - fish.width / 2;*/
+
+
+		float x0 = fish.x;
+		float y0 = fish.y;
+		float vx = fish.vx;
+		float vy = fish.vy;
+
+		float v_len = glm::sqrt(vx * vx + vy * vy);
+
+		// h - point in the middle of the triangle 
+		float hx = x0 + (-fish.lenght / v_len) * vx;
+		float hy = y0 + (-fish.lenght / v_len) * vy;
+		// perpendicular vec to fish v  
+		float ux = -vy;
+		float uy = vx;
+		float u_len = glm::sqrt(ux * ux + uy * uy);
+
+		float ax = hx + (fish.width / u_len) * ux;
+		float ay = hy + (fish.width / u_len) * uy;
+
+		float bx = hx - (fish.width / u_len) * ux;
+		float by = hy - (fish.width / u_len) * uy;
+
+		// check orientation with cross
+		float xaX = ax - x0;
+		float yaY = ay - y0;
+		float xbX = bx - x0;
+		float ybY = by - y0;
+
+		float cross = xaX * ybY - ybY * xaX;
+
+		if (cross < 0)
+		{
+			float tmpX = ax;
+			float tmpY = ay;
+			ax = bx;
+			ay = by;
+			bx = tmpX;
+			by = tmpY;
+		}
+
+		vertices[6 * i] = fish.x;;
+		vertices[6 * i + 1] = fish.y;
+
+		vertices[6 * i + 2] = ax;
+		vertices[6 * i + 3] = ay;
+
+		vertices[6 * i + 4] = bx;
+		vertices[6 * i + 5] = by;
 	}
 
 	VertexArray va;
@@ -174,25 +223,25 @@ void init_fishes()
 {
 	for (int i = 0; i < N; ++i)
 	{
-		float X = (static_cast<float>(rand() % static_cast<int>(WINDOW_WIDTH)));
-		float Y = (static_cast<float>(rand() % static_cast<int>(WINDOW_HEIGHT)));
+		float X = (static_cast<float>(rand() % WINDOW_WIDTH));
+		float Y = (static_cast<float>(rand() % WINDOW_HEIGHT));
 
-		int x_vel = rand() % 10 + 1;
-		int y_vel = rand() % 10 + 1;
-		int x_rand = rand() % 2;
-		int y_rand = rand() % 2;
+		int vx = rand() % 10 + 1;
+		int vy = rand() % 10 + 1;
+		int x = rand() % 2;
+		int y = rand() % 2;
 
 		fishes[i] = Fish(X, Y);
 
-		if (x_rand == 0)
-			fishes[i].vx = x_vel;
+		if (x == 0)
+			fishes[i].vx = vx;
 		else
-			fishes[i].vx = -x_vel;
+			fishes[i].vx = -vx;
 
-		if (y_rand == 0)
-			fishes[i].vy = y_vel;
+		if (y == 0)
+			fishes[i].vy = vy;
 		else
-			fishes[i].vy = -y_vel;
+			fishes[i].vy = -vy;
 
 	}
 }

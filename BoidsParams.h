@@ -6,6 +6,6 @@ typedef struct BoidsParameters
     float alignment = 0.05f;
 
     float speed = 0.1f;
-    float visionRange = 200.f;
+    float visionRange = 30.f;
     float protectedRange = 20.f;
 };

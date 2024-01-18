@@ -196,14 +196,53 @@ __global__ void kernel_copy(Fish* fishes, float* vertices, unsigned int N)
      
     Fish fish = fishes[i];
 
+    float x0 = fish.x;
+    float y0 = fish.y;
+    float vx = fish.vx;
+    float vy = fish.vy;
+
+    float v_len = glm::sqrt(vx * vx + vy * vy);
+
+    // h - point in the middle of the triangle 
+    float hx = x0 + (-fish.lenght / v_len) * vx;
+    float hy = y0 + (-fish.lenght / v_len) * vy;
+    // perpendicular vec to fish v  
+    float ux = -vy;
+    float uy = vx;
+    float u_len = glm::sqrt(ux * ux + uy * uy);
+
+    float ax = hx + (fish.width / u_len) * ux;
+    float ay = hy + (fish.width / u_len) * uy;
+
+    float bx = hx - (fish.width / u_len) * ux;
+    float by = hy - (fish.width / u_len) * uy;
+
+    // check orientation with cross
+    float xaX = ax - x0;
+    float yaY = ay - y0;
+    float xbX = bx - x0;
+    float ybY = by - y0;
+
+    float cross = xaX * ybY - ybY * xaX;
+    
+    if (cross < 0)
+    {
+        float tmpX = ax;
+        float tmpY = ay;
+        ax = bx;
+        ay = by;
+        bx = tmpX;
+        by = tmpY;
+    }
+
     vertices[6 * i] = fish.x;;
     vertices[6 * i + 1] = fish.y;
 
-    vertices[6 * i + 2] = fish.x - fish.lenght;
-    vertices[6 * i + 3] = fish.y + fish.width / 2;
+    vertices[6 * i + 2] = ax;
+    vertices[6 * i + 3] = ay;
 
-    vertices[6 * i + 4] = fish.x - fish.lenght;
-    vertices[6 * i + 5] = fish.y - fish.width / 2;
+    vertices[6 * i + 4] = bx;
+    vertices[6 * i + 5] = by;
 }
 void CudaFish::memory_alloc(unsigned int N, int width, int height)
 {
