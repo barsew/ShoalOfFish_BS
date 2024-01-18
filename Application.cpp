@@ -103,14 +103,14 @@ int main()
 
 		renderer.Draw(va, 3 * N);
 
-		ImGui::Begin("Set properties");
-		ImGui::Text("Liczba rybek %d", N);
-		ImGui::SliderFloat("Visual range of fish", &bp.visionRange, 5.0f, 100.0f);
+		ImGui::Begin("Menu");
+		ImGui::Text("Number of fishes %d", N);
+		ImGui::SliderFloat("Visual range", &bp.visionRange, 10.0f, 200.0f);
 		ImGui::SliderFloat("Protected range", &bp.protectedRange, 0.0f, 100.0f);
-		ImGui::SliderFloat("Cohesion rule scale", &bp.cohesion, 0.0f, 0.1f);
-		ImGui::SliderFloat("Separation rule scale", &bp.separation, 0.0f, 0.1f);
-		ImGui::SliderFloat("Alignment rule scale", &bp.alignment, 0.0f, 0.1f);
-		ImGui::SliderFloat("Speed scale", &bp.speed, 0.1f, 0.5f);
+		ImGui::SliderFloat("Cohesion", &bp.cohesion, 0.0f, 0.1f);
+		ImGui::SliderFloat("Separation", &bp.separation, 0.0f, 0.1f);
+		ImGui::SliderFloat("Alignment", &bp.alignment, 0.0f, 0.1f);
+		ImGui::SliderFloat("Speed", &bp.speed, 0.1f, 1.0f);
 
 		ImGui::End();
 
