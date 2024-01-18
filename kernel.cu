@@ -11,10 +11,16 @@ __global__ void kernel_fish(Fish* fishes, unsigned int* grid_indices, int* grid_
     AnimationVars av, int width, int height, unsigned int* indicies, float cell_width)
 { 
     const auto index = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (index >= N) { return; }
+    if (index >= N)
+    {
+        return;
+    }
 
     int ind = indicies[index];
-    if (ind >= N) { return; }
+    if (ind >= N)
+    {
+        return;
+    }
 
     float xpos_avg = 0.0f, ypos_avg = 0.0f, xvel_avg = 0.0f, yvel_avg = 0.0f, neighboring_boids = 0.0f, close_dx = 0.0f, close_dy = 0.0f;
 
@@ -143,7 +149,10 @@ __global__ void kernel_fish(Fish* fishes, unsigned int* grid_indices, int* grid_
 __global__ void grid_init(Fish* fishes, unsigned int* grid_cells, unsigned int* indices, float cell_width, unsigned int N, int width)
 {
     const auto index = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (index >= N) { return; }
+    if (index >= N)
+    {
+        return;
+    }
 
     int col = fishes[index].x / cell_width;
     int row = fishes[index].y / cell_width;
@@ -155,24 +164,24 @@ __global__ void grid_init(Fish* fishes, unsigned int* grid_cells, unsigned int* 
 __global__ void grid_start_end(unsigned int* grid_indices, int* grid_cell_start, int* grid_cell_end, unsigned int N)
 {
     const auto index = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (index >= N) { return; }
-
-    unsigned int cellNo = grid_indices[index];
-
-    if (index == 0)
+    if (index >= N)
     {
-        grid_cell_start[cellNo] = 0;
         return;
     }
 
-    unsigned int cellNo_prev = grid_indices[index - 1];
-    if (cellNo != cellNo_prev)
+    if (index == 0)
     {
-        grid_cell_end[cellNo_prev] = index;
-        grid_cell_start[cellNo] = index;
+        grid_cell_start[grid_indices[index]] = 0;
+        return;
+    }
+
+    if (grid_indices[index] != grid_indices[index - 1])
+    {
+        grid_cell_end[grid_indices[index - 1]] = index;
+        grid_cell_start[grid_indices[index]] = index;
         if (index == N - 1) 
         { 
-            grid_cell_end[cellNo] = index;
+            grid_cell_end[grid_indices[index]] = index;
         }
     }
 }
@@ -180,8 +189,11 @@ __global__ void grid_start_end(unsigned int* grid_indices, int* grid_cell_start,
 __global__ void kernel_copy(Fish* fishes, float* vertices, unsigned int N)
 {
     const auto i = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (i >= N) { return; }
-
+    if (i >= N)
+    {
+        return;
+    }
+     
     Fish fish = fishes[i];
 
     vertices[6 * i] = fish.x;;
