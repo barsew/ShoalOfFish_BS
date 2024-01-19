@@ -154,10 +154,9 @@ int main()
 
 		ImGui::Begin("Menu");
 		ImGui::Text("Number of fishes %d", N);
-		ImGui::SliderFloat("Visual range", &bp.visionRange, 10.0f, 200.0f);
 		ImGui::SliderFloat("Protected range", &bp.protectedRange, 0.0f, 100.0f);
-		ImGui::SliderFloat("Cohesion", &bp.cohesion, 0.0f, 0.1f);
-		ImGui::SliderFloat("Separation", &bp.separation, 0.0f, 0.1f);
+		ImGui::SliderFloat("Cohesion", &bp.cohesion, 0.00f, 0.005f, "%.4f");
+		ImGui::SliderFloat("Separation", &bp.separation, 0.0f, 1.0f);
 		ImGui::SliderFloat("Alignment", &bp.alignment, 0.0f, 0.1f);
 		ImGui::SliderFloat("Speed", &bp.speed, 0.1f, 1.0f);
 
